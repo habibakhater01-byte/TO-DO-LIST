@@ -2,7 +2,7 @@ import "dotenv/config";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
-import { checkConnection } from "./DB/db.js";
+import { checkConnection, createTable } from "./DB/db.js";
 import { todoRoute } from "./Routes/todo.routes.js";
 import { toggleRoute } from "./Routes/toggle.routes.js";
 
@@ -36,7 +36,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-checkConnection();
+checkConnection()
+  .then(createTable)
+  .catch((err) => console.error("Table creation failed:", err.message));
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
