@@ -1,24 +1,21 @@
 import { Router } from "express";
 import { dbQueries } from "../DB/queries.js";
+import { safe } from "../Middleware/safe.js";
+import { validateId } from "../Middleware/validateId.js";
 
 const db = dbQueries();
 export const toggleRoute = Router();
 
-toggleRoute.patch("/:id/toggle", async (req, res) => {
-  const { id } = req.params;
-  const existing = await db.getbyid(id);
-  if (!existing) {
-    return res.status(404).json({ error: "This Todo does not exist to toggle it" });
-  }
-  const data = await db.toggleDone(id);
-  return res.status(200).json({ data: data });
-});
-toggleRoute.patch("/:id/archive", async (req, res) => {
-  const { id } = req.params;
-  const existing = await db.getbyid(id);
-  if (!existing) {
-    return res.status(404).json({ error: "This Todo does not exist to archive it" });
-  }
-  const data = await db.toggleArchive(id);
-  return res.status(200).json({ data: data });
-});
+const toggle = (action, label) =>
+  safe(async (req, res) => {
+    const data = await db[action](req.params.id);
+    if (!data) {
+      return res
+        .status(404)
+        .json({ error: `This Todo does not exist to ${label} it` });
+    }
+    return res.status(200).json({ data });
+  });
+
+toggleRoute.patch("/:id/toggle", validateId, toggle("toggleDone", "toggle"));
+toggleRoute.patch("/:id/archive", validateId, toggle("toggleArchive", "archive"));

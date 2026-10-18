@@ -2,9 +2,9 @@ import "dotenv/config";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
-import { checkConnection, createTable } from "./DB/db.js";
-import { todoRoute } from "./Routes/todo.routes.js";
-import { toggleRoute } from "./Routes/toggle.routes.js";
+import { checkConnection } from "./DB/db.js";
+import { todoRoute } from "./routes/todo.routes.js";
+import { toggleRoute } from "./routes/toggle.routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,8 +17,6 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-
-// serve the frontend (files inside the public folder)
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/todo", todoRoute);
@@ -36,9 +34,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-checkConnection()
-  .then(createTable)
-  .catch((err) => console.error("Table creation failed:", err.message));
+checkConnection().catch((err) => {
+  console.error("Database connection failed:", err.message);
+  process.exit(1);
+});
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

@@ -1,61 +1,60 @@
-import { pool } from "./db.js";
+import { eq, desc, ilike, or, sql } from "drizzle-orm";
+import { db } from "./db.js";
+import { todo } from "./schema.js";
 
-export function dbQueries() {
-  async function getAll() {
-    const result = await pool.query("SELECT * FROM TODO ORDER BY id ASC");
-    return result.rows;
-  }
+const toId = (id) => Number(id);
 
-  async function getbyid(id) {
-    const result = await pool.query("SELECT * FROM TODO WHERE id = $1", [id]);
-    return result.rows[0];
-  }
+export const dbQueries = () => ({
+  getAll: () => db.select().from(todo).orderBy(desc(todo.createdAt)),
 
-  // ILIKE: search not case-sensitive
-  async function search(title) {
-    const result = await pool.query(
-      "SELECT * FROM TODO WHERE title ILIKE $1 OR body ILIKE $1",
-      [`%${title}%`]
-    );
-    return result.rows;
-  }
+  search: (text) => {
+    const safe = text.replace(/[%_\\]/g, "\\$&");
+    return db
+      .select()
+      .from(todo)
+      .where(or(ilike(todo.title, `%${safe}%`), ilike(todo.body, `%${safe}%`)))
+      .orderBy(desc(todo.createdAt));
+  },
 
-  async function create(title, body) {
-    const result = await pool.query(
-      "INSERT INTO TODO (title, body) VALUES ($1, $2) RETURNING *",
-      [title, body]
-    );
-    return result.rows[0];
-  }
+  getbyid: async (id) => {
+    const [row] = await db.select().from(todo).where(eq(todo.id, toId(id)));
+    return row ?? null;
+  },
 
-  async function update(id, title, body) {
-    const result = await pool.query(
-      "UPDATE TODO SET title = $1, body = $2 WHERE id = $3 RETURNING *",
-      [title, body, id]
-    );
-    return result.rows[0];
-  }
+  create: async (title, body) => {
+    const [row] = await db.insert(todo).values({ title, body }).returning();
+    return row;
+  },
 
-  async function Delete(id) {
-    const result = await pool.query("DELETE FROM TODO WHERE id = $1", [id]);
-    return result.rowCount;
-  }
+  update: async (id, title, body) => {
+    const [row] = await db
+      .update(todo)
+      .set({ title, body })
+      .where(eq(todo.id, toId(id)))
+      .returning();
+    return row ?? null;
+  },
 
-  async function toggleDone(id) {
-    const result = await pool.query(
-      "UPDATE TODO SET done = NOT done WHERE id = $1 RETURNING *",
-      [id]
-    );
-    return result.rows[0];
-  }
+  remove: async (id) => {
+    const [row] = await db.delete(todo).where(eq(todo.id, toId(id))).returning();
+    return row ?? null;
+  },
 
-  async function toggleArchive(id) {
-    const result = await pool.query(
-      "UPDATE TODO SET archived = NOT archived WHERE id = $1 RETURNING *",
-      [id]
-    );
-    return result.rows[0];
-  }
+  toggleDone: async (id) => {
+    const [row] = await db
+      .update(todo)
+      .set({ done: sql`NOT ${todo.done}` })
+      .where(eq(todo.id, toId(id)))
+      .returning();
+    return row ?? null;
+  },
 
-  return { getAll, search, getbyid, create, update, Delete, toggleDone, toggleArchive };
-}
+  toggleArchive: async (id) => {
+    const [row] = await db
+      .update(todo)
+      .set({ archived: sql`NOT ${todo.archived}` })
+      .where(eq(todo.id, toId(id)))
+      .returning();
+    return row ?? null;
+  },
+});
